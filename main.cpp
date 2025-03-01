@@ -3,6 +3,7 @@
 #include <string>
 #include <sstream>
 #include <unordered_map>
+#include <vector>
 
 using namespace std;
 
@@ -20,8 +21,10 @@ unordered_map<string, int> INSTRUCTION_SET =
     {"ADD", 0x09},
     {"DATA", 0x0A}
 };
+int PC = 0;
+vector<int> memory(10);
 
-string assemble(const string &instruction)
+void assemble(const string &instruction)
 {
     stringstream instructionStream(instruction);
     string op;
@@ -39,22 +42,48 @@ string assemble(const string &instruction)
     int machine_code = 0;
     if(op == "DATA")
     {
-        //here addr is basically data
-        machine_code = address;
-    }
-    else if(op == "NOP")
-    {
-        machine_code = 0x00000000;
+        int data;
+        instructionStream >> data;
+        memory.resize(address + 1);
+        memory[address] = data;
     }
     else
     {
         machine_code = (INSTRUCTION_SET[op] << 28 ) + address;
+        memory.push_back(machine_code);
     }
+    return;
 
     // Convert to uppercase hex string
-    stringstream hexStream;
-    hexStream << hex << machine_code;
-    return hexStream.str();
+//    stringstream hexStream;
+//    hexStream << hex << machine_code;
+//    return hexStream.str();
+}
+
+void writeMemoryToFile(string& filePath, vector<int>& memory)
+{
+    int columns = 8;
+    ofstream outputHexFile;
+    outputHexFile.open(filePath);
+    outputHexFile << "v2.0 raw\n";
+
+    for(auto hexCode : memory)
+    {
+        stringstream hexStream;
+        hexStream << hex << hexCode;
+        outputHexFile << hexStream.str();
+
+        columns--;
+        if(columns <= 0)
+        {
+            outputHexFile << "\n";
+            columns = 8;
+        }
+        else
+        {
+            outputHexFile << " ";
+        }
+    }
 }
 
 int main(int argc, char* argv[])
@@ -63,8 +92,6 @@ int main(int argc, char* argv[])
     string instructions;
     string extension = ".tpasm";
     ifstream readTpasmFile;
-    ofstream outputHexFile;
-    int columns = 8;
 
 
     if(filePath.find(extension) == string::npos)
@@ -76,28 +103,16 @@ int main(int argc, char* argv[])
     auto pos = filePath.find('.');
     string outputFileName = filePath.substr(0, pos);
 
-    outputHexFile.open(outputFileName);
-
     try
     {
         readTpasmFile.open(filePath);
-        outputHexFile << "v2.0 raw\n";
 
         while(getline(readTpasmFile, instructions))
         {
-            string hexCode = assemble(instructions);
-            outputHexFile << hexCode;
-            columns--;
-            if(columns <= 0)
-            {
-                outputHexFile << "\n";
-                columns = 8;
-            }
-            else
-            {
-                outputHexFile << " ";
-            }
+            assemble(instructions);
         }
+
+        writeMemoryToFile(outputFileName, memory);
     }
     catch(exception e)
     {
